@@ -5,6 +5,3 @@ This Ansible playbook installs and configures a website using the nginx web serv
 
 Run the playbook using the command: 
 ansible-playbook playbook-nginx.yml
-
-You can also specify additional options, such as the path to the "hosts" inventory file and any additional connections info, then run it using the command: 
-ansible-playbook -i hosts -u root -k -b playbook-nginx.yml
