@@ -5,7 +5,6 @@
   become: yes
 
   tasks:
-    # Install required packages
     - name: Instalowanie serwera nginx
       apt:
         name: nginx
@@ -16,7 +15,6 @@
         name: mysql-server
         state: present
 
-    # Configure website
     - name: Tworzenie katalogu strony
       file:
         path: /var/www/mywebsite
@@ -37,7 +35,6 @@
         priv: "*.*:ALL"
         host: localhost
 
-    # Set up backups
     - name: Utworzenie katalogu z kopiami zapasowymi
       file:
         path: /var/backups/mywebsite
