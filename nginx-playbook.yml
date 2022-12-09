@@ -1,0 +1,96 @@
+---
+
+- name: Zainstaluje i skonfiguruj stronę
+  hosts: webservers
+  become: yes
+
+  tasks:
+    # Install required packages
+    - name: Instalowanie serwera nginx
+      apt:
+        name: nginx
+        state: present
+
+    - name: Instalowanie serwera MySQL
+      apt:
+        name: mysql-server
+        state: present
+
+    # Configure website
+    - name: Tworzenie katalogu strony
+      file:
+        path: /var/www/mywebsite
+        state: directory
+
+    - name: Deployment plików strony
+      template:
+        src: templates/index.html.j2
+        dest: /var/www/mywebsite/index.html
+        owner: www-data
+        group: www-data
+        mode: 0644
+
+    - name: Tworzenie usera w MySQL
+      mysql_user:
+        name: mywebsite
+        password: password
+        priv: "*.*:ALL"
+        host: localhost
+
+    # Set up backups
+    - name: Utworzenie katalogu z kopiami zapasowymi
+      file:
+        path: /var/backups/mywebsite
+        state: directory
+        owner: backup
+        group: backup
+        mode: 0750
+
+    - name: Tworzenie skryptu do backupów
+      copy:
+        src: files/backup.sh
+        dest: /usr/local/bin/mywebsite_backup.sh
+        owner: backup
+        group: backup
+        mode: 0750
+
+    - name: Dodaj bazę do crontabu
+      cron:
+        name: mywebsite_backup
+        job: "/usr/local/bin/mywebsite_backup.sh"
+        hour: "0"
+        minute: "0"
+
+  - name: Monitorowanie wydajności i kondycji strony
+    shell: curl http://localhost/mywebsite
+    register: website_check
+    ignore_errors: true
+
+  - name: Sprawdzanie response code strony
+    fail:
+      msg: "Strona nie działa prawidłowo. Response code: {{ website_check.status }}"
+    when: website_check.status != 200
+
+  - name: Sprawdzanie response time strony
+    fail:
+      msg: "Response time strony jest zbyt wysoki. Response time: {{ website_check.real }}"
+    when: website_check.real > 500
+
+  - name: Sprawdź obciążenie serwera
+    shell: uptime
+    register: server_load
+    ignore_errors: true
+
+  - name: Sprawdź średnie obciążenie serwera
+    fail:
+      msg: "Obciążenie serwera jest zbyt wysokie. Srednie obciążenie: {{ server_load.stdout_lines[0].split()[-3:] }}"
+    when: server_load.stdout_lines[0].split()[-3:] > [1.0, 5.0, 15.0]
+
+  - name: Wysyłanie alertów e-mailem
+    mail:
+      host: localhost
+      port: 25
+      to: admin@mywebsite.com
+      subject: "Website alert: {{ ansible_hostname }}"
+      body: "Wystąpił problem ze stroną lub serwerem. Prosimy o zapoznanie się ze szczegółami:
+{{ website_check }}
